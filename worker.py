@@ -15,7 +15,7 @@ def log(s):
 def main():
   while True:
     log('getting work')
-    l = factordb.factordb_list(min_digits=80)
+    l = factordb.factordb_list(min_digits=79)
     for n in l:
       log('working on %s' % n)
 
@@ -27,16 +27,15 @@ def main():
       log('running ECM')
       ecm_result = factoring.ecm(n)
       if ecm_result:
-        log('success on %s' % n)
+        log('ECM succeeded: %s | %s' % (n, str(ecm_result)))
         factordb.factordb_submit(q['id'], ecm_result)
         continue
 
-      #print('running GFS')
-      #gfs_result = factoring.gfs(n)
-      #if gfs_result:
-      #  factordb_submit(q['id'], gfs_result)
-      #  continue
-
-    exit(0)
+      log('running NFS')
+      nfs_result = factoring.nfs(n)
+      if nfs_result:
+        log('NFS succeeded: %s | %s' % (n, str(nfs_result)))
+        factordb.factordb_submit(q['id'], nfs_result)
+        continue
 
 main()

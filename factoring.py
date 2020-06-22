@@ -2,6 +2,7 @@ import subprocess
 from subprocess import Popen, PIPE
 
 ECM='/home/penlu/ecm-7.0.4/ecm'
+NFS='/home/penlu/cado-nfs-2.3.0/cado-nfs.py'
 
 def ecm_proc(c, b1, b2):
   return Popen([ECM, '-q', '-c', c, b1, b2], stdin=PIPE, stdout=PIPE)
@@ -47,3 +48,8 @@ def ecm(n):
   result = do_ecm(n, 430, '25e4', '1.3e8')
   if result:
     return result
+
+def nfs(n):
+  p = Popen([NFS, n], stdout=PIPE)
+  results = set(map(lambda x: x.decode('utf8'), p.communicate()[0].split()))
+  return list(results - set([n]))
