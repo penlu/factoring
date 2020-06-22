@@ -9,12 +9,14 @@ def ecm_proc(c, b1, b2):
 
 def do_ecm(n, c, b1, b2):
   # run 32 parallel ECM
+  # TODO configurable core count
   procs = [ecm_proc(str((c + 31) // 32), b1, b2) for i in range(32)]
   for p in procs:
     p.stdin.write(bytes(n + '\n', encoding='utf8'))
     p.stdin.flush()
 
   # accumulate results
+  # TODO asynchronous wait
   results = set()
   for i, p in enumerate(procs):
     results = results | set(map(lambda x: x.decode('utf8'), p.communicate()[0].split()))
@@ -38,6 +40,7 @@ def do_ecm(n, c, b1, b2):
 #          55       11e7        7.8e11          20158            17769 [D(30)]
 #          60       26e7        3.2e12          47173            42017 [D(30)]
 #          65       85e7        1.6e13          77666            69408 [D(30)]
+# TODO generalize for n
 def ecm(n):
   result = do_ecm(n, 74, '11e3', '1.9e6')
   if result:
