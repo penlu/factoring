@@ -29,30 +29,30 @@ def do_ecm(config, n, c, b1, b2):
 
   return list(results - set([n]))
 
-#       digits D  optimal B1   default B2           expected curves
-#                                                       N(B1,B2,D)
-#                                              -power 1         default poly
-#          20       11e3         1.9e6             74               74 [x^1]
-#          25        5e4         1.3e7            221              214 [x^2]
-#          30       25e4         1.3e8            453              430 [D(3)]
-#          35        1e6         1.0e9            984              904 [D(6)]
-#          40        3e6         5.7e9           2541             2350 [D(6)]
-#          45       11e6        3.5e10           4949             4480 [D(12)]
-#          50       43e6        2.4e11           8266             7553 [D(12)]
-#          55       11e7        7.8e11          20158            17769 [D(30)]
-#          60       26e7        3.2e12          47173            42017 [D(30)]
-#          65       85e7        1.6e13          77666            69408 [D(30)]
-# TODO generalize for n
 def ecm(config, n):
-  result = do_ecm(config, n, 74, '11e3', '1.9e6')
-  if result:
-    return result
-  result = do_ecm(config, n, 214, '5e4', '1.3e7')
-  if result:
-    return result
-  result = do_ecm(config, n, 430, '25e4', '1.3e8')
-  if result:
-    return result
+  # please don't actually run a t65 with this script
+  params = {
+    20: (74, '11e3', '1.9e6'),
+    25: (214, '5e4', '1.3e7'),
+    30: (430, '25e4', '1.3e8'),
+    35: (904, '1e6', '1.0e9'),
+    40: (2350, '3e6', '5.7e9'),
+    45: (4480, '11e6', '3.5e10'),
+    50: (7553, '43e6', '2.4e11'),
+    55: (17769, '11e7', '7.8e11'),
+    60: (42017, '26e7', '3.2e12'),
+    65: (69408, '85e7', '1.6e13')
+  }
+
+  # standard guidance is to run ECM to around 1/3 the digit count before NFS
+  max_t = (len(n) + 14) // 15 * 5
+  for t in [20, 25, 30, 35, 40, 45, 50, 55, 60, 65]:
+    if t > max_t:
+      break
+
+    result = do_ecm(config, n, *params[t])
+    if result:
+      return result
 
 def nfs(config, n):
   nfs_path = config['nfs_path']
