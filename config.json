@@ -1,0 +1,8 @@
+{
+  "ecm_path": "/home/penlu/ecm-7.0.4/ecm",
+  "nfs_path": "/home/penlu/cado-nfs-2.3.0/cado-nfs.py",
+  "ecm_cores": 4,
+  "min_digits": 79,
+  "number": 50,
+  "offset": 0
+}

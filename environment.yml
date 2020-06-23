@@ -1,0 +1,8 @@
+name: factordb
+
+channels:
+  - defaults
+
+dependencies:
+  - lxml>=4.5.1
+  - requests>=2.23.0
