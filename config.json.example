@@ -1,7 +1,9 @@
 {
   "ecm_path": "/home/penlu/ecm-7.0.4/ecm",
   "cado_path": "/home/penlu/cado-nfs-2.3.0/cado-nfs.py",
+  "msieve_path": "/home/penlu/msieve-1.53/msieve",
   "ecm_procs": 4,
+  "msieve_procs": 4,
   "min_digits": 79,
   "number": 50,
   "offset": 0

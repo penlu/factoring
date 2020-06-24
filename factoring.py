@@ -1,15 +1,18 @@
 import asyncio
+import math
+import os
+import subprocess
 from subprocess import Popen, PIPE
 
 # ECM on number n: at least c curves at the given b1 and b2
 async def do_ecm(config, n, c, b1, b2):
   ecm_path = config['ecm_path']
   j = config.get('ecm_procs', 1)
-  curves_per_core = (c + j - 1) // j
+  curves_per_proc = (c + j - 1) // j
 
   # start j parallel ECM instances
   procs = [await asyncio.create_subprocess_exec(
-    ecm_path, '-q', '-c', str(curves_per_core), b1, b2,
+    ecm_path, '-q', '-c', str(curves_per_proc), b1, b2,
     stdin=asyncio.subprocess.PIPE,
     stdout=asyncio.subprocess.PIPE) for i in range(j)]
 
@@ -64,8 +67,79 @@ def ecm(config, n):
     if result:
       return result
 
+def msieve_relations(n):
+  n_bits = 0 if int(n) == 0 else math.log2(int(n))
+  fb_sizes = [
+    (64, 100), (128, 450), (183, 2000), (200, 3000),
+    (212, 5400), (233, 10000), (249, 27000), (266, 50000),
+    (283, 55000), (298, 60000), (315, 80000), (332, 100000),
+    (348, 140000), (363, 210000), (379, 300000), (395, 400000),
+    (415, 500000), (440, 700000), (465, 900000), (490, 1100000),
+    (512, 1300000)
+  ]
+  for i in range(len(fb_sizes) - 1):
+    if n_bits < fb_sizes[i + 1][0]:
+      # weighted average of bracketing table entries
+      low = fb_sizes[i]
+      high = fb_sizes[i + 1]
+      diff = high[0] - low[0]
+      fb_size = low[1] + (n_bits - low[0]) / diff * (high[1] - low[1])
+      break
+  else:
+    # input is unreasonable, so take maximum table entry
+    fb_size = 1300000
+
+  return int(fb_size + 0.5) + 96
+
+async def msieve_sieve(config, n):
+  # calculate relations needed
+  max_relations = msieve_relations(n)
+
+  msieve_path = config['msieve_path']
+  j = config.get('msieve_procs', 1)
+
+  # start siever processes
+  rels_per_proc = (max_relations + j - 1) // j
+  procs = [await asyncio.create_subprocess_exec(
+    msieve_path, '-q', '-c', '-r', str(rels_per_proc), n,
+    '-s', '/tmp/factoring/msieve_%d.dat' % i,
+    '-l', '/tmp/factoring/msieve_%d.log' % i,
+    stdin=asyncio.subprocess.PIPE,
+    stdout=asyncio.subprocess.PIPE) for i in range(j)]
+
+  await asyncio.wait([p.wait() for p in procs])
+
+def msieve(config, n):
+  msieve_path = config['msieve_path']
+  j = config.get('msieve_procs', 1)
+
+  # create directory for msieve data
+  if not os.path.exists('/tmp/factoring'):
+    os.mkdir('/tmp/factoring')
+
+  # clear directory contents
+  for i in range(j):
+    f = open('/tmp/factoring/msieve_%d.dat' % i, 'w')
+    f.close()
+
+  # do sieving
+  asyncio.run(msieve_sieve(config, n))
+
+  # compile relations
+  cmd = ['cat'] + ['/tmp/factoring/msieve_%d.dat' % i for i in range(j)]
+  subprocess.call(cmd, stdin=PIPE,
+    stdout=open('/tmp/factoring/msieve.dat', 'w'))
+
+  # do linear algebra
+  p = Popen([msieve_path, '-q', '-t', str(j), n,
+    '-s', '/tmp/factoring/msieve.dat',
+    '-l', '/tmp/factoring/msieve.log'],
+    stdin=PIPE, stdout=PIPE)
+
+  return list(map(lambda x: x.decode('utf8'), p.communicate()[0].split()[2::2]))
+
 def cado(config, n):
   cado_path = config['cado_path']
-  p = Popen([cado_path, n], stdout=PIPE)
+  p = Popen([cado_path, n], stdin=PIPE, stdout=PIPE)
   results = set(map(lambda x: x.decode('utf8'), p.communicate()[0].split()))
   return list(results - set([n]))

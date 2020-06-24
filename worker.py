@@ -39,16 +39,25 @@ def main():
 
       log('running ECM')
       result = factoring.ecm(config, n)
-      if ecm_result:
+      if result:
         log('ECM succeeded: %s | %s' % (n, str(result)))
         factordb.submit(q['id'], result)
         continue
 
-      log('running GNFS')
-      result = factoring.cado(config, n)
-      if result:
-        log('GNFS succeeded: %s | %s' % (n, str(result)))
-        factordb.submit(q['id'], result)
-        continue
+      # TODO decide based on benchmarking
+      if len(n) < 100:
+        log('running SIQS')
+        result = factoring.msieve(config, n)
+        if result:
+          log('SIQS succeeded: %s | %s' % (n, str(result)))
+          factordb.submit(q['id'], result)
+          continue
+      else:
+        log('running GNFS')
+        result = factoring.cado(config, n)
+        if result:
+          log('GNFS succeeded: %s | %s' % (n, str(result)))
+          factordb.submit(q['id'], result)
+          continue
 
 main()
