@@ -1,4 +1,5 @@
 import asyncio
+from subprocess import Popen, PIPE
 
 # ECM on number n: at least c curves at the given b1 and b2
 async def do_ecm(config, n, c, b1, b2):
