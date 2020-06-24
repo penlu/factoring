@@ -4,7 +4,7 @@ from subprocess import Popen, PIPE
 # ECM on number n: at least c curves at the given b1 and b2
 async def do_ecm(config, n, c, b1, b2):
   ecm_path = config['ecm_path']
-  j = config.get('ecm_cores', 1)
+  j = config.get('ecm_procs', 1)
   curves_per_core = (c + j - 1) // j
 
   # start j parallel ECM instances
@@ -64,8 +64,8 @@ def ecm(config, n):
     if result:
       return result
 
-def nfs(config, n):
-  nfs_path = config['nfs_path']
-  p = Popen([nfs_path, n], stdout=PIPE)
+def cado(config, n):
+  cado_path = config['cado_path']
+  p = Popen([cado_path, n], stdout=PIPE)
   results = set(map(lambda x: x.decode('utf8'), p.communicate()[0].split()))
   return list(results - set([n]))

@@ -38,17 +38,17 @@ def main():
         continue
 
       log('running ECM')
-      ecm_result = factoring.ecm(config, n)
+      result = factoring.ecm(config, n)
       if ecm_result:
-        log('ECM succeeded: %s | %s' % (n, str(ecm_result)))
-        factordb.submit(q['id'], ecm_result)
+        log('ECM succeeded: %s | %s' % (n, str(result)))
+        factordb.submit(q['id'], result)
         continue
 
-      log('running NFS')
-      nfs_result = factoring.nfs(config, n)
-      if nfs_result:
-        log('NFS succeeded: %s | %s' % (n, str(nfs_result)))
-        factordb.submit(q['id'], nfs_result)
+      log('running GNFS')
+      result = factoring.cado(config, n)
+      if result:
+        log('GNFS succeeded: %s | %s' % (n, str(result)))
+        factordb.submit(q['id'], result)
         continue
 
 main()
