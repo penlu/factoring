@@ -1,33 +1,41 @@
-import subprocess
-from subprocess import Popen, PIPE
+import asyncio
 
-NFS='/home/penlu/cado-nfs-2.3.0/cado-nfs.py'
-
-def ecm_proc(config, c, b1, b2):
+# ECM on number n: at least c curves at the given b1 and b2
+async def do_ecm(config, n, c, b1, b2):
   ecm_path = config['ecm_path']
-  return Popen([ecm_path, '-q', '-c', c, b1, b2], stdin=PIPE, stdout=PIPE)
-
-# ECM on number n
-# at least c curves at given b1 and b2
-def do_ecm(config, n, c, b1, b2):
-  # run j parallel ECM
   j = config.get('ecm_cores', 1)
-  procs = [ecm_proc(config, str((c + j - 1) // j), b1, b2) for i in range(j)]
+  curves_per_core = (c + j - 1) // j
+
+  # start j parallel ECM instances
+  procs = [await asyncio.create_subprocess_exec(
+    ecm_path, '-q', '-c', str(curves_per_core), b1, b2,
+    stdin=asyncio.subprocess.PIPE,
+    stdout=asyncio.subprocess.PIPE) for i in range(j)]
+
+  # write n to each process
   for p in procs:
     p.stdin.write(bytes(n + '\n', encoding='utf8'))
-    p.stdin.flush()
+    p.stdin.close()
 
-  # accumulate results
-  # TODO asynchronous wait
-  results = set()
-  for i, p in enumerate(procs):
-    results = results | set(map(lambda x: x.decode('utf8'), p.communicate()[0].split()))
+  running = [p.stdout.read() for p in procs]
+  while running:
+    done, running = await asyncio.wait(running,
+      return_when=asyncio.FIRST_COMPLETED)
 
-  # wait for subprocesses
-  for p in procs:
-    p.wait()
+    results = [set(map(lambda x: x.decode('utf8'), task.result().split()))
+      for task in done]
+    factors = list(set.union(*results) - set([n]))
 
-  return list(results - set([n]))
+    if factors:
+      for p in procs:
+        try:
+          p.terminate()
+        except ProcessLookupError:
+          pass
+      await asyncio.wait([p.wait() for p in procs])
+      return factors
+
+  await asyncio.wait([p.wait() for p in procs])
 
 def ecm(config, n):
   # please don't actually run a t65 with this script
@@ -50,7 +58,7 @@ def ecm(config, n):
     if t > max_t:
       break
 
-    result = do_ecm(config, n, *params[t])
+    result = asyncio.run(do_ecm(config, n, *params[t]))
     if result:
       return result
 
