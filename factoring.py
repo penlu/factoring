@@ -27,15 +27,16 @@ async def do_ecm(config, n, c, b1, b2):
     factors = list(set.union(*results) - set([n]))
 
     if factors:
-      for p in procs:
-        try:
-          p.terminate()
-        except ProcessLookupError:
-          pass
-      await asyncio.wait([p.wait() for p in procs])
-      return factors
+      break
 
+  for p in procs:
+    try:
+      p.terminate()
+    except ProcessLookupError:
+      pass
   await asyncio.wait([p.wait() for p in procs])
+
+  return factors
 
 def ecm(config, n):
   # please don't actually run a t65 with this script
