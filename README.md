@@ -8,6 +8,13 @@ Available options are documented here:
 * `msieve_path` - path to an msieve binary (required)
 * `ecm_procs` - number of parallel ECM instances to run (default: 1)
 * `msieve_procs` - number of msieve instances to run during sieving (default: 1)
+* `work_source` - how to get numbers to factor (required)
+
+## Work source
+The `work_source` option is itself expected to be an object containing at least
+an entry `type` (default: factordb).
+
+When `type` is `factordb`, the following options in `work_source` are meaningful:
 * `min_digits` - minimum composite size to get from FactorDB (default: 79)
     * recommend at least 70, because FactorDB quickly factors most smaller numbers
 * `number` - number of composites to get per FactorDB request (default: 50)
