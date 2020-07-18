@@ -4,7 +4,10 @@
   "msieve_path": "/home/penlu/msieve-1.53/msieve",
   "ecm_procs": 4,
   "msieve_procs": 4,
-  "min_digits": 79,
-  "number": 50,
-  "offset": 0
+  "work_source": {
+    "type": "factordb",
+    "min_digits": 79,
+    "number": 50,
+    "offset": 0
+  }
 }

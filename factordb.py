@@ -1,5 +1,7 @@
-import requests
 from lxml import html
+import requests
+from requests.exceptions import RequestException
+import time
 
 # types: PRP=1, U=2, C=3, P=4
 # returns a list of IDs
@@ -28,3 +30,50 @@ def query(n):
 def submit(ID, factors):
   data = {'format': 0, 'report': '\n'.join(factors)}
   x = requests.post('http://factordb.com/index.php', params={'id': ID}, data=data)
+
+# work source object for factordb
+class FactorDB:
+  def __init__(self, log, **config):
+    self.log = log
+
+    self.min_digits = config.get('min_digits', 79)
+    self.number = config.get('number', 50)
+    self.offset = config.get('offset', 0)
+
+  # work generator
+  # yields: identifier (for submission), number to factor
+  def get_work(self):
+    l = []
+    while True:
+      while not l:
+        self.log('factordb: getting work')
+        try:
+          l = listtype(
+            min_digits=self.min_digits,
+            number=self.number,
+            offset=self.offset)
+          break
+        except RequestException as e:
+          self.log('factordb: listtype failed; retrying in 5 seconds')
+          time.sleep(5)
+
+      for n in l:
+        try:
+          q = query(n)
+          if q['status'] != 'C':
+            self.log('%s already factored' % n)
+            continue
+        except RequestException as e:
+          self.log('factordb: query failed; retrying in 5 seconds')
+          time.sleep(5)
+
+        yield q['id'], n
+
+  def submit(self, id_, result):
+    while True:
+      try:
+        submit(id_, result)
+        break
+      except RequestException as e:
+        self.log('factordb: submit failed; retrying in 5 seconds')
+        time.sleep(5)
