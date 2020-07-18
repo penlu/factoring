@@ -43,8 +43,8 @@ class FactorDB:
   # work generator
   # yields: identifier (for submission), number to factor
   def get_work(self):
-    l = []
     while True:
+      l = []
       while not l:
         self.log('factordb: getting work')
         try:
