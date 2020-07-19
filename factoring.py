@@ -5,6 +5,7 @@ import os
 import subprocess
 from subprocess import Popen, PIPE
 import sys
+import tempfile
 
 # ECM on number n: at least c curves at the given b1 and b2
 async def do_ecm(config, n, c, b1, b2):
@@ -44,30 +45,30 @@ async def do_ecm(config, n, c, b1, b2):
 
   return factors
 
-def ecm(config, n, max_t=None):
-  # please don't actually run a t65 with this script
-  params = {
-    20: (74, '11e3', '1.9e6'),
-    25: (214, '5e4', '1.3e7'),
-    30: (430, '25e4', '1.3e8'),
-    35: (904, '1e6', '1.0e9'),
-    40: (2350, '3e6', '5.7e9'),
-    45: (4480, '11e6', '3.5e10'),
-    50: (7553, '43e6', '2.4e11'),
-    55: (17769, '11e7', '7.8e11'),
-    60: (42017, '26e7', '3.2e12'),
-    65: (69408, '85e7', '1.6e13')
-  }
+# please don't actually run a t65 with this script
+ecm_params = {
+  20: (74, '11e3', '1.9e6'),
+  25: (214, '5e4', '1.3e7'),
+  30: (430, '25e4', '1.3e8'),
+  35: (904, '1e6', '1.0e9'),
+  40: (2350, '3e6', '5.7e9'),
+  45: (4480, '11e6', '3.5e10'),
+  50: (7553, '43e6', '2.4e11'),
+  55: (17769, '11e7', '7.8e11'),
+  60: (42017, '26e7', '3.2e12'),
+  65: (69408, '85e7', '1.6e13')
+}
 
+def ecm(config, n, max_t=None):
   if not max_t:
     # standard guidance is to run ECM to around 1/3 the digit count before NFS
     max_t = (len(n) + 14) // 15 * 5
 
-  for t in [20, 25, 30, 35, 40, 45, 50, 55, 60, 65]:
+  for t in ecm_params.keys():
     if t > max_t:
       break
 
-    result = asyncio.run(do_ecm(config, n, *params[t]))
+    result = asyncio.run(do_ecm(config, n, *ecm_params[t]))
     if result:
       return result
 
@@ -148,11 +149,47 @@ def cado(config, n):
   results = set(map(lambda x: x.decode('utf8'), p.communicate()[0].split()))
   return list(results - set([n]))
 
+# factor number single-threaded
+async def single(config, log, id_, n):
+  ecm_path = config['ecm_path']
+  msieve_path = config['msieve_path']
+
+  # try ECM
+  log('running ECM on %s' % n)
+  max_t = (len(n) + 14) // 15 * 5
+  for t in [20, 25, 30, 35, 40, 45, 50, 55, 60, 65]:
+    if t > max_t:
+      break
+
+    c, b1, b2 = ecm_params[t]
+
+    p = await asyncio.create_subprocess_exec(
+      ecm_path, '-q', '-c', str(c), b1, b2,
+      stdin=asyncio.subprocess.PIPE,
+      stdout=asyncio.subprocess.PIPE)
+
+    p.stdin.write(bytes(n + '\n', encoding='utf8'))
+    p.stdin.close()
+
+    stdout, stderr = await p.communicate()
+    results = set(map(lambda x: x.decode('utf8'), stdout.split()))
+    factors = list(results - set([n]))
+    if factors:
+      return id_, n, factors
+
+  # try msieve
+  log('running QS on %s' % n)
+  _, tmp = tempfile.mkstemp(prefix='msieve')
+  p = await asyncio.create_subprocess_exec(
+    msieve_path, '-q', n, '-s', tmp, stdin=PIPE, stdout=PIPE)
+
+  stdout, stderr = await p.communicate()
+
+  os.remove(tmp)
+
+  return id_, n, list(map(lambda x: x.decode('utf8'), stdout.split()[2::2]))
+
 if __name__ == '__main__':
   with open('config.json', 'r') as config_file:
     config = json.loads(config_file.read())
-
-    result = ecm(config, sys.argv[1], max_t=int(sys.argv[2]))
-
-    if result:
-      print(result)
+  print(asyncio.run(single(config, print, '', sys.argv[1])))
