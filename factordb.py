@@ -1,3 +1,4 @@
+from json.decoder import JSONDecodeError
 from lxml import html
 import requests
 from requests.exceptions import RequestException
@@ -63,7 +64,7 @@ class FactorDB:
           if q['status'] != 'C':
             self.log('%s already factored' % n)
             continue
-        except RequestException as e:
+        except (JSONDecodeError, RequestException) as e:
           self.log('factordb: query failed; retrying in 5 seconds')
           time.sleep(5)
 
