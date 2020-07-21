@@ -179,7 +179,8 @@ async def single(config, log, id_, n):
 
   # try msieve
   log('running QS on %s' % n)
-  _, tmp = tempfile.mkstemp(prefix='msieve')
+  fd, tmp = tempfile.mkstemp(prefix='msieve')
+  os.close(fd)
   p = await asyncio.create_subprocess_exec(
     msieve_path, '-q', n, '-s', tmp, stdin=PIPE, stdout=PIPE)
 
