@@ -1,6 +1,8 @@
 import factordb
 import factoring
 
+import aiohttp
+from aiohttp import ClientError
 import asyncio
 import datetime
 import json
@@ -30,20 +32,34 @@ async def main():
   work_source = get_work_source(config)
   work_gen = work_source.get_work()
 
+  async def do_one(n):
+    while True:
+      try:
+        q = await work_source.query(n)
+        if q['status'] != 'C':
+          return n, None
+        id_, n, result = await factoring.single(config, log, q['id'], n)
+        await work_source.put_work(id_, result)
+        return n, result
+      except ClientError as e:
+        log('factordb: query failed; retrying in 5 seconds')
+        time.sleep(5)
+
   tasks = set([])
   while True:
     if len(tasks) < config['ecm_procs']:
-      id_, n = next(work_gen)
-      tasks.add(asyncio.create_task(
-        factoring.single(config, log, id_, n)))
+      n = await work_gen.__anext__()
+      tasks.add(asyncio.create_task(do_one(n)))
       continue
 
     done, tasks = await asyncio.wait(tasks,
       return_when=asyncio.FIRST_COMPLETED)
 
     for task in done:
-      id_, n, result = task.result()
-      log('succeeded: %s | %s' % (n, str(result)))
-      work_source.submit(id_, result)
+      n, result = task.result()
+      if result:
+        log('succeeded: %s | %s' % (n, str(result)))
+      else:
+        log('%s already factored' % n)
 
 asyncio.run(main())

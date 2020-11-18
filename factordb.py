@@ -1,36 +1,7 @@
-from json.decoder import JSONDecodeError
+import aiohttp
+from aiohttp import ClientError, ClientSession, TCPConnector
 from lxml import html
-import requests
-from requests.exceptions import RequestException
 import time
-
-# types: PRP=1, U=2, C=3, P=4
-# returns a list of IDs
-# factordb_list(t=3, min_digits=80, number=100, offset=0)
-def listtype(t=3, min_digits=0, number=100, offset=0):
-  params = {'t': t, 'mindig': min_digits, 'perpage': number, 'start': offset, 'download': 1}
-  x = requests.get('http://factordb.com/listtype.php', params=params)
-  return x.text.split('\n')[:-1]
-
-def showid(ID):
-  params = {'showid': ID}
-  x = requests.get('http://factordb.com/index.php', params=params)
-  tree = html.fromstring(x.content)
-  return tree.xpath('/html/body/form/table/tr[3]/td[2]/text()')
-
-def showstatus(ID):
-  params = {'id': ID}
-  x = requests.get('http://factordb.com/index.php', params=params)
-  tree = html.fromstring(x.content)
-  return tree.xpath('/html/body/table[2]/tr[3]/td[1]/text()')
-
-# expected fields: id, status, factors
-def query(n):
-  return requests.get('http://factordb.com/api', params={'query': n}).json()
-
-def submit(ID, factors):
-  data = {'format': 0, 'report': '\n'.join(factors)}
-  x = requests.post('http://factordb.com/index.php', params={'id': ID}, data=data)
 
 # work source object for factordb
 class FactorDB:
@@ -41,40 +12,76 @@ class FactorDB:
     self.number = config.get('number', 50)
     self.offset = config.get('offset', 0)
 
+    # create session with limited parallel connections
+    connector = TCPConnector(limit_per_host=4)
+    self.session = ClientSession(connector=connector)
+
+  # types: PRP=1, U=2, C=3, P=4
+  # returns a list of IDs
+  # factordb_list(t=3, min_digits=80, number=100, offset=0)
+  async def listtype(self, t=3, min_digits=0, number=100, offset=0):
+    params = {'t': t, 'mindig': min_digits, 'perpage': number, 'start': offset, 'download': 1}
+    async with self.session.get(
+        'http://factordb.com/listtype.php',
+        params=params) as resp:
+      text = await resp.text()
+      return text.split('\n')[:-1]
+
+  async def showid(self, ID):
+    params = {'showid': ID}
+    async with self.session.get(
+        'http://factordb.com/index.php',
+        params=params) as resp:
+      tree = html.fromstring(resp.read())
+      return tree.xpath('/html/body/form/table/tr[3]/td[2]/text()')
+
+  async def showstatus(self, ID):
+    params = {'id': ID}
+    async with self.session.get(
+        'http://factordb.com/index.php',
+        params=params) as resp:
+      tree = html.fromstring(resp.read())
+      return tree.xpath('/html/body/table[2]/tr[3]/td[1]/text()')
+
+  # expected fields: id, status, factors
+  async def query(self, n):
+    async with self.session.get(
+        'http://factordb.com/api',
+        params={'query': n}) as resp:
+      return await resp.json()
+
+  async def submit(self, ID, factors):
+    data = {'format': 0, 'report': '\n'.join(factors)}
+    await self.session.post(
+        'http://factordb.com/index.php',
+        params={'id': ID},
+        data=data)
+
   # work generator
   # yields: identifier (for submission), number to factor
-  def get_work(self):
+  async def get_work(self):
     while True:
       l = []
       while not l:
         self.log('factordb: getting work')
         try:
-          l = listtype(
+          l = await self.listtype(
             min_digits=self.min_digits,
             number=self.number,
             offset=self.offset)
           break
-        except RequestException as e:
+        except ClientError as e:
           self.log('factordb: listtype failed; retrying in 5 seconds')
           time.sleep(5)
 
       for n in l:
-        try:
-          q = query(n)
-          if q['status'] != 'C':
-            self.log('%s already factored' % n)
-            continue
-        except (JSONDecodeError, RequestException) as e:
-          self.log('factordb: query failed; retrying in 5 seconds')
-          time.sleep(5)
+        yield n
 
-        yield q['id'], n
-
-  def submit(self, id_, result):
+  async def put_work(self, id_, result):
     while True:
       try:
-        submit(id_, result)
+        await self.submit(id_, result)
         break
-      except RequestException as e:
+      except ClientError as e:
         self.log('factordb: submit failed; retrying in 5 seconds')
         time.sleep(5)
