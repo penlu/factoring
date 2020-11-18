@@ -1,4 +1,7 @@
+# Dependencies
 Python 3.8 intended.
+
+Needs at least packages: `lxml`, `requests`, `aiohttp`.
 
 # Worker configuration
 Configuration is via `config.json`.
