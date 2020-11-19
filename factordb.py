@@ -1,5 +1,7 @@
 import aiohttp
 from aiohttp import ClientError, ClientSession, TCPConnector
+import asyncio
+from asyncio.exceptions import TimeoutError
 from lxml import html
 import time
 
@@ -70,7 +72,7 @@ class FactorDB:
             number=self.number,
             offset=self.offset)
           break
-        except ClientError as e:
+        except (ClientError, TimeoutError) as e:
           self.log('factordb: listtype failed; retrying in 5 seconds')
           time.sleep(5)
 
@@ -82,6 +84,6 @@ class FactorDB:
       try:
         await self.submit(id_, result)
         break
-      except ClientError as e:
+      except (ClientError, TimeoutError) as e:
         self.log('factordb: submit failed; retrying in 5 seconds')
         time.sleep(5)

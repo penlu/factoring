@@ -4,6 +4,7 @@ import factoring
 import aiohttp
 from aiohttp import ClientError
 import asyncio
+from asyncio.exceptions import TimeoutError
 import datetime
 import json
 import time
@@ -41,7 +42,7 @@ async def main():
         id_, n, result = await factoring.single(config, log, q['id'], n)
         await work_source.put_work(id_, result)
         return n, result
-      except ClientError as e:
+      except (ClientError, TimeoutError) as e:
         log('factordb: query failed; retrying in 5 seconds')
         time.sleep(5)
 
