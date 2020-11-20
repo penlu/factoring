@@ -81,8 +81,9 @@ class FactorDB:
 
   async def put_work(self, id_, result):
     while True:
+      n = str(max(list(map(int, result))))
       try:
-        await self.submit(id_, result)
+        await self.submit(id_, [n])
         break
       except (ClientError, TimeoutError) as e:
         self.log('factordb: submit failed; retrying in 5 seconds')
